@@ -1,170 +1,350 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Rental FIXED</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cash Collection System</title>
+
+<!-- 🔥 PDF LIBRARY -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
 <style>
-body{font-family:sans-serif;background:#0f172a;color:#fff;padding:20px}
-
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:15px;
+body{
+  font-family:Segoe UI;
+  margin:0;
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  padding:20px;
 }
 
-.card{
-  background:#1e293b;
-  border-radius:10px;
-  overflow:hidden;
+.container{
+  max-width:950px;
+  margin:auto;
+  background:#fff;
+  padding:20px;
+  border-radius:15px;
 }
 
-.card img{
-  width:100%;
-  height:90px;   /* 👈 small image FIX */
-  object-fit:cover;
-}
+h2{text-align:center}
 
-button{padding:8px;margin-top:5px}
-
-.hidden{display:none}
-
-.modal{
-  position:fixed;
-  top:0;left:0;
-  width:100%;height:100%;
-  background:#000a;
+.form-group{
   display:flex;
+  gap:10px;
   justify-content:center;
-  align-items:center;
+  flex-wrap:wrap;
 }
 
-.box{
-  background:#1e293b;
-  padding:15px;
+select,input,button{
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+button{
+  background:#667eea;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+
+button:hover{
+  opacity:0.9;
+}
+
+.search-box{
+  text-align:center;
+  margin:10px 0;
+}
+
+.search-box input{
+  width:140px;
+  padding:7px;
+  font-size:13px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+th,td{
+  padding:10px;
+  text-align:center;
+  border-bottom:1px solid #eee;
+}
+
+th{
+  background:#667eea;
+  color:white;
+}
+
+.date-header{
+  background:#eef2ff;
+  font-weight:bold;
+}
+
+.delete-btn{
+  background:red;
+  color:white;
+  border:none;
+  padding:5px 8px;
+  border-radius:5px;
+}
+
+.total{
+  text-align:right;
+  font-weight:bold;
+  margin-top:10px;
+}
+
+.date-list{
+  margin-top:10px;
+  padding:10px;
+  background:#f3f5ff;
   border-radius:10px;
+  font-size:13px;
+}
+
+.date-list span{
+  background:#667eea;
+  color:white;
+  padding:4px 8px;
+  margin:3px;
+  border-radius:5px;
+  display:inline-block;
 }
 </style>
-</head>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+</head>
 <body>
 
-<h2>Rental App FIX</h2>
+<div class="container">
 
-<button onclick="openModal()">Add Product</button>
+<h2>💰 Cash Collection System</h2>
 
-<div id="products" class="grid"></div>
+<div class="form-group">
+<select id="outlet"></select>
+<input type="date" id="date">
+<input type="number" id="amount" placeholder="Amount RM">
+<button onclick="addData()">➕ Add</button>
+</div>
 
-<h3>Cart</h3>
-<div id="cart"></div>
+<div class="search-box">
+🔍 Submit Date:
+<input type="date" id="searchDate">
+<button onclick="render()">Search</button>
+<button onclick="clearSearch()">Clear</button>
+<button onclick="downloadPDF()">📄 PDF</button>
+</div>
 
-<button id="checkoutBtn" class="hidden" onclick="checkout()">Checkout</button>
+<table>
+<thead>
+<tr>
+<th>Outlet</th>
+<th>Business Date</th>
+<th>Amount</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
 
-<!-- MODAL -->
-<div id="modal" class="modal hidden">
-  <div class="box">
-    <input id="name" placeholder="Name"><br><br>
-    <input id="price" placeholder="Price"><br><br>
-    <input id="imageFile" type="file"><br><br>
-    <button onclick="addProduct()">Add</button>
-    <button onclick="closeModal()">Close</button>
-  </div>
+<div class="total" id="total"></div>
+
+<div class="date-list" id="dateList"></div>
+
 </div>
 
 <script>
 
-let products = JSON.parse(localStorage.getItem("products") || "[]");
-let cart = [];
+// 🔥 Firebase Config (replace yours)
+const firebaseConfig = {
+  apiKey: "AIzaSyAEXJ9aIKErt2RITlJ0wwRKgMjODGL7pbg",
+  authDomain: "net-cash-project.firebaseapp.com",
+  databaseURL: "https://net-cash-project-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "net-cash-project",
+};
 
-// FIX: safe modal reference
-const modal = document.getElementById("modal");
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database().ref("cashData");
 
-function openModal(){
-  modal.classList.remove("hidden");
+const outlets=["JMTA","JSID","JTDT","JTAP","JTSA","JDT2","JBJP","JAP2","JTEK"];
+
+let data=[];
+
+// load data
+function loadData(){
+  db.on("value",snap=>{
+    const val=snap.val();
+    data=val?Object.values(val):[];
+    render();
+  });
 }
-function closeModal(){
-  modal.classList.add("hidden");
-}
 
-// ADD PRODUCT (SAFE VERSION)
-function addProduct(){
-  const name = document.getElementById("name").value;
-  const price = document.getElementById("price").value;
-  const file = document.getElementById("imageFile").files[0];
+// init
+window.onload=()=>{
+  document.getElementById("date").valueAsDate=new Date();
 
-  if(!name || !price || !file){
+  const sel=document.getElementById("outlet");
+  outlets.forEach(o=>{
+    sel.innerHTML+=`<option value="${o}">${o}</option>`;
+  });
+
+  loadData();
+};
+
+// add data
+function addData(){
+  const outlet=document.getElementById("outlet").value;
+  const date=document.getElementById("date").value;
+  const amount=document.getElementById("amount").value;
+
+  if(!date||!amount){
     alert("Fill all fields");
     return;
   }
 
-  const reader = new FileReader();
+  const submitDate=new Date().toISOString().split("T")[0];
 
-  reader.onload = function(e){
-    products.push({
-      name:name,
-      price:Number(price),
-      image:e.target.result
+  const id=Date.now();
+
+  db.child(id).set({
+    id,
+    outlet,
+    date,
+    amount,
+    submitDate
+  });
+
+  document.getElementById("amount").value="";
+}
+
+// delete
+function deleteData(id){
+  db.child(id).remove();
+}
+
+// render
+function render(){
+
+  const table=document.getElementById("table");
+  const searchDate=document.getElementById("searchDate").value;
+  const dateList=document.getElementById("dateList");
+
+  table.innerHTML="";
+  let total=0;
+
+  let filtered=data;
+
+  if(searchDate){
+    filtered=data.filter(d=>d.submitDate===searchDate);
+  }
+
+  let grouped={};
+  let submitDates=new Set();
+
+  filtered.forEach(d=>{
+    submitDates.add(d.submitDate);
+    if(!grouped[d.date]) grouped[d.date]=[];
+    grouped[d.date].push(d);
+  });
+
+  Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
+
+    table.innerHTML+=`
+      <tr class="date-header">
+        <td colspan="4">📅 ${date}</td>
+      </tr>
+    `;
+
+    let dayTotal=0;
+
+    grouped[date].forEach(d=>{
+      dayTotal+=Number(d.amount);
+      total+=Number(d.amount);
+
+      table.innerHTML+=`
+        <tr>
+          <td>${d.outlet}</td>
+          <td>${d.date}</td>
+          <td>RM ${d.amount}</td>
+          <td><button class="delete-btn" onclick="deleteData('${d.id}')">×</button></td>
+        </tr>
+      `;
     });
 
-    localStorage.setItem("products", JSON.stringify(products));
-
-    loadProducts();
-    closeModal();
-  }
-
-  reader.readAsDataURL(file);
-}
-
-// LOAD PRODUCTS
-function loadProducts(){
-  let html = "";
-
-  products.forEach((p,i)=>{
-    html += `
-    <div class="card">
-      <img src="${p.image}">
-      <div style="padding:10px">
-        <h4>${p.name}</h4>
-        <p>$${p.price}</p>
-        <button onclick="addToCart(${i})">Select</button>
-      </div>
-    </div>`;
+    table.innerHTML+=`
+      <tr>
+        <td colspan="2"><b>Day Total</b></td>
+        <td colspan="2"><b>RM ${dayTotal}</b></td>
+      </tr>
+    `;
   });
 
-  document.getElementById("products").innerHTML = html;
+  document.getElementById("total").innerText="Grand Total: RM "+total;
+
+  // submit dates list
+  dateList.innerHTML="📅 Submitted Dates: ";
+  [...submitDates].sort().forEach(d=>{
+    dateList.innerHTML+=`<span>${d}</span>`;
+  });
 }
 
-// CART
-function addToCart(i){
-  cart.push(products[i]);
-  renderCart();
+// clear
+function clearSearch(){
+  document.getElementById("searchDate").value="";
+  render();
 }
 
-function renderCart(){
-  let html = "";
+/* 🔥 PDF DOWNLOAD */
+function downloadPDF(){
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const searchDate = document.getElementById("searchDate").value;
+
+  let filtered = data;
+
+  if(searchDate){
+    filtered = data.filter(d => d.submitDate === searchDate);
+  }
+
+  if(filtered.length === 0){
+    alert("No data found");
+    return;
+  }
+
+  let rows = [];
   let total = 0;
 
-  cart.forEach(p=>{
-    total += p.price;
-    html += `<p>${p.name} - $${p.price}</p>`;
+  filtered.forEach(d=>{
+    rows.push([d.outlet, d.date, "RM "+d.amount]);
+    total += Number(d.amount);
   });
 
-  html += `<h3>Total: $${total}</h3>`;
+  doc.text("Cash Collection Report", 14, 15);
 
-  document.getElementById("cart").innerHTML = html;
-
-  if(cart.length > 0){
-    document.getElementById("checkoutBtn").classList.remove("hidden");
+  if(searchDate){
+    doc.text("Submit Date: "+searchDate, 14, 22);
   }
-}
 
-// CHECKOUT
-function checkout(){
-  let total = cart.reduce((a,b)=>a+b.price,0);
-  alert("Total: " + total);
-}
+  doc.autoTable({
+    startY: 30,
+    head:[["Outlet","Business Date","Amount"]],
+    body:rows
+  });
 
-loadProducts();
+  let y = doc.lastAutoTable.finalY;
+
+  doc.text("Total: RM "+total, 14, y+10);
+
+  doc.save("cash-report.pdf");
+}
 
 </script>
 
