@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Rental FIXED</title>
+
+<style>
+body{font-family:sans-serif;background:#0f172a;color:#fff;padding:20px}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:15px;
+}
+
+.card{
+  background:#1e293b;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.card img{
+  width:100%;
+  height:90px;   /* 👈 small image FIX */
+  object-fit:cover;
+}
+
+button{padding:8px;margin-top:5px}
+
+.hidden{display:none}
+
+.modal{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:#000a;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.box{
+  background:#1e293b;
+  padding:15px;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Rental App FIX</h2>
+
+<button onclick="openModal()">Add Product</button>
+
+<div id="products" class="grid"></div>
+
+<h3>Cart</h3>
+<div id="cart"></div>
+
+<button id="checkoutBtn" class="hidden" onclick="checkout()">Checkout</button>
+
+<!-- MODAL -->
+<div id="modal" class="modal hidden">
+  <div class="box">
+    <input id="name" placeholder="Name"><br><br>
+    <input id="price" placeholder="Price"><br><br>
+    <input id="imageFile" type="file"><br><br>
+    <button onclick="addProduct()">Add</button>
+    <button onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+
+let products = JSON.parse(localStorage.getItem("products") || "[]");
+let cart = [];
+
+// FIX: safe modal reference
+const modal = document.getElementById("modal");
+
+function openModal(){
+  modal.classList.remove("hidden");
+}
+function closeModal(){
+  modal.classList.add("hidden");
+}
+
+// ADD PRODUCT (SAFE VERSION)
+function addProduct(){
+  const name = document.getElementById("name").value;
+  const price = document.getElementById("price").value;
+  const file = document.getElementById("imageFile").files[0];
+
+  if(!name || !price || !file){
+    alert("Fill all fields");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+    products.push({
+      name:name,
+      price:Number(price),
+      image:e.target.result
+    });
+
+    localStorage.setItem("products", JSON.stringify(products));
+
+    loadProducts();
+    closeModal();
+  }
+
+  reader.readAsDataURL(file);
+}
+
+// LOAD PRODUCTS
+function loadProducts(){
+  let html = "";
+
+  products.forEach((p,i)=>{
+    html += `
+    <div class="card">
+      <img src="${p.image}">
+      <div style="padding:10px">
+        <h4>${p.name}</h4>
+        <p>$${p.price}</p>
+        <button onclick="addToCart(${i})">Select</button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById("products").innerHTML = html;
+}
+
+// CART
+function addToCart(i){
+  cart.push(products[i]);
+  renderCart();
+}
+
+function renderCart(){
+  let html = "";
+  let total = 0;
+
+  cart.forEach(p=>{
+    total += p.price;
+    html += `<p>${p.name} - $${p.price}</p>`;
+  });
+
+  html += `<h3>Total: $${total}</h3>`;
+
+  document.getElementById("cart").innerHTML = html;
+
+  if(cart.length > 0){
+    document.getElementById("checkoutBtn").classList.remove("hidden");
+  }
+}
+
+// CHECKOUT
+function checkout(){
+  let total = cart.reduce((a,b)=>a+b.price,0);
+  alert("Total: " + total);
+}
+
+loadProducts();
+
+</script>
+
+</body>
+</html>
